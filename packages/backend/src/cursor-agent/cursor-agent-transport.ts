@@ -1,7 +1,7 @@
 import { CursorAgentEvent } from "@winnie/contracts/cursor-agent-events";
 import type { MessageError } from "@winnie/utils/message-error";
 import { Effect, Stream } from "effect";
-import { CursorContext } from "../cursor-context.js";
+import { dual } from "effect/Function";
 import { NdjsonStream } from "./ndjson-stream.js";
 import {
   type ProcessExit,
@@ -47,6 +47,19 @@ export interface CursorAgentRunResult {
   readonly exit: ProcessExit;
 }
 
+export interface CursorServiceOptions {
+  readonly resolveExecutable: (name: string) => Effect.Effect<string, MessageError>;
+}
+
+/**
+ * `cursor-agent` transport closed over a process runner + executable resolver.
+ * Construct with {@link CursorService.make}; ops take this as the first argument.
+ */
+export interface CursorService {
+  readonly processRunner: ProcessRunner;
+  readonly resolveExecutable: (name: string) => Effect.Effect<string, MessageError>;
+}
+
 const makeCursorAgentArgs = (request: CursorAgentRunRequest): string[] =>
   compactArgs([
     "-p",
@@ -79,58 +92,82 @@ const eventsFromStdout = (
 ): Stream.Stream<CursorAgentEvent, ProcessIoError | MessageError> =>
   NdjsonStream.bytesToJson(stdout).pipe(Stream.mapEffect(CursorAgentEvent.decode));
 
-export class CursorService extends Effect.Service<CursorService>()(
-  "@winnie/backend/CursorAgentTransport",
-  {
-    effect: Effect.gen(function* () {
-      const processRunner = yield* ProcessRunner;
-      const cursor = yield* CursorContext;
+const createProcessRequest: {
+  (
+    service: CursorService,
+    request: CursorAgentRunRequest,
+  ): Effect.Effect<ProcessRequest, MessageError>;
+  (
+    request: CursorAgentRunRequest,
+  ): (service: CursorService) => Effect.Effect<ProcessRequest, MessageError>;
+} = dual(2, (service: CursorService, request: CursorAgentRunRequest) =>
+  Effect.gen(function* () {
+    const command = yield* service.resolveExecutable("cursor-agent");
+    return makeProcessRequest({ command, request });
+  }),
+);
 
-      const createProcessRequest = (request: CursorAgentRunRequest) =>
-        Effect.gen(function* () {
-          const command = yield* cursor.resolveExecutable("cursor-agent");
-          return makeProcessRequest({ command, request });
-        });
+const start: {
+  (
+    service: CursorService,
+    request: CursorAgentRunRequest,
+  ): Effect.Effect<StartedCursorAgent, MessageError | ProcessStartError>;
+  (
+    request: CursorAgentRunRequest,
+  ): (
+    service: CursorService,
+  ) => Effect.Effect<StartedCursorAgent, MessageError | ProcessStartError>;
+} = dual(2, (service: CursorService, request: CursorAgentRunRequest) =>
+  Effect.gen(function* () {
+    const processRequest = yield* createProcessRequest(service, request);
+    const started = yield* ProcessRunner.start(service.processRunner, processRequest);
 
-      const start = (request: CursorAgentRunRequest) =>
-        Effect.gen(function* () {
-          const processRequest = yield* createProcessRequest(request);
-          const started = yield* processRunner.start(processRequest);
+    return {
+      request,
+      processRequest,
+      stdoutLogPath: started.stdoutLogPath,
+      stderrLogPath: started.stderrLogPath,
+      events: eventsFromStdout(started.stdout),
+      stderr: started.stderr,
+      exit: started.exit,
+      kill: started.kill,
+    } satisfies StartedCursorAgent;
+  }),
+);
 
-          return {
-            request,
-            processRequest,
-            stdoutLogPath: started.stdoutLogPath,
-            stderrLogPath: started.stderrLogPath,
-            events: eventsFromStdout(started.stdout),
-            stderr: started.stderr,
-            exit: started.exit,
-            kill: started.kill,
-          } satisfies StartedCursorAgent;
-        });
+const run: {
+  (
+    service: CursorService,
+    request: CursorAgentRunRequest,
+  ): Effect.Effect<CursorAgentRunResult, MessageError | ProcessStartError | ProcessIoError>;
+  (
+    request: CursorAgentRunRequest,
+  ): (
+    service: CursorService,
+  ) => Effect.Effect<CursorAgentRunResult, MessageError | ProcessStartError | ProcessIoError>;
+} = dual(2, (service: CursorService, request: CursorAgentRunRequest) =>
+  Effect.gen(function* () {
+    const started = yield* start(service, request);
 
-      const run = (request: CursorAgentRunRequest) =>
-        Effect.gen(function* () {
-          const started = yield* start(request);
+    const [events, , exit] = yield* Effect.all(
+      [Stream.runCollect(started.events), Stream.runDrain(started.stderr), started.exit],
+      { concurrency: "unbounded" },
+    );
 
-          const [events, , exit] = yield* Effect.all(
-            [Stream.runCollect(started.events), Stream.runDrain(started.stderr), started.exit],
-            { concurrency: "unbounded" },
-          );
+    return {
+      request,
+      events: [...events],
+      exit,
+    } satisfies CursorAgentRunResult;
+  }),
+);
 
-          return {
-            request,
-            events: [...events],
-            exit,
-          } satisfies CursorAgentRunResult;
-        });
-
-      return {
-        createProcessRequest,
-        start,
-        run,
-      };
-    }),
-    dependencies: [ProcessRunner.Default],
-  },
-) {}
+export const CursorService = {
+  make: (processRunner: ProcessRunner, options: CursorServiceOptions): CursorService => ({
+    processRunner,
+    resolveExecutable: options.resolveExecutable,
+  }),
+  createProcessRequest,
+  start,
+  run,
+};

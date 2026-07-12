@@ -1,14 +1,10 @@
 import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { MessageError } from "@winnie/utils/message-error";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect } from "effect";
 
 export interface CursorContextOptions {
-  readonly dataDirectory?: string;
+  readonly dataDirectory: string;
 }
-
-const defaultDataDirectory = path.join(tmpdir(), "winnie-backend");
 
 const getConfiguredShell = () => process.env.SHELL ?? "/bin/zsh";
 
@@ -88,6 +84,10 @@ const resolveExecutableInEnv = (env: NodeJS.ProcessEnv, name: string) =>
     (error, builder) => builder.line(`Failed to resolve executable '${name}'.`).cause(error),
   );
 
+/**
+ * Process-level bootstrap: data root, login-shell env, executable lookup.
+ * Per-thread paths are plain data via {@link ThreadPaths}.
+ */
 export interface CursorContextService {
   readonly dataDirectory: string;
   readonly shellEnv: NodeJS.ProcessEnv;
@@ -95,31 +95,25 @@ export interface CursorContextService {
 }
 
 const makeCursorContext = (
-  options?: CursorContextOptions,
+  options: CursorContextOptions,
 ): Effect.Effect<CursorContextService, MessageError> =>
   Effect.gen(function* () {
-    const dataDirectory = options?.dataDirectory ?? defaultDataDirectory;
     const shellEnv = yield* discoverEnvironment;
 
     return {
-      dataDirectory,
+      dataDirectory: options.dataDirectory,
       shellEnv,
       resolveExecutable: (name: string) => resolveExecutableInEnv(shellEnv, name),
     };
   });
 
 /**
- * Process-level bootstrap: data root, login-shell env, and future global config
- * (cockpit workspace, etc.). Per-thread paths live on `ThreadContext` in `chat/`.
- *
- * Provide once via {@link CursorContext.layer} / {@link CursorContext.Default}.
+ * Sole process-global Effect Tag. Construct with {@link CursorContext.make};
+ * Layer wiring happens at the harness / app edge.
  */
 export class CursorContext extends Context.Tag("@winnie/backend/CursorContext")<
   CursorContext,
   CursorContextService
 >() {
-  static layer = (options?: CursorContextOptions) =>
-    Layer.effect(CursorContext, makeCursorContext(options));
-
-  static Default = CursorContext.layer();
+  static make = makeCursorContext;
 }

@@ -7,7 +7,7 @@ import path from "node:path";
 import { NodeStream } from "@effect/platform-node";
 import { TryEffect } from "@winnie/utils/try";
 import { Data, Effect, Stream } from "effect";
-import { CursorContext } from "../cursor-context.js";
+import { dual } from "effect/Function";
 
 export interface ProcessRequest {
   readonly command: string;
@@ -59,6 +59,14 @@ export class ProcessExitError extends Data.TaggedError("ProcessExitError")<{
 }> {}
 
 export type ProcessRunnerError = ProcessStartError | ProcessIoError | ProcessExitError;
+
+/**
+ * Argv process runner closed over a login-shell env.
+ * Construct with {@link ProcessRunner.make}; ops take this as the first argument.
+ */
+export interface ProcessRunner {
+  readonly shellEnv: NodeJS.ProcessEnv;
+}
 
 type LogPaths = {
   readonly stdoutLogPath: string;
@@ -231,7 +239,7 @@ const runProcess = (
   request: ProcessRequest,
   shellEnv: NodeJS.ProcessEnv,
   options?: { readonly failOnNonZero?: boolean },
-) =>
+): Effect.Effect<ProcessExit, ProcessStartError | ProcessIoError | ProcessExitError> =>
   Effect.gen(function* () {
     const started = yield* startProcess(request, shellEnv);
 
@@ -247,17 +255,42 @@ const runProcess = (
     return exit;
   });
 
-export class ProcessRunner extends Effect.Service<ProcessRunner>()(
-  "@winnie/backend/ProcessRunner",
-  {
-    effect: Effect.gen(function* () {
-      const cursor = yield* CursorContext;
+const start: {
+  (
+    runner: ProcessRunner,
+    request: ProcessRequest,
+  ): Effect.Effect<StartedProcess, ProcessStartError>;
+  (
+    request: ProcessRequest,
+  ): (runner: ProcessRunner) => Effect.Effect<StartedProcess, ProcessStartError>;
+} = dual(2, (runner: ProcessRunner, request: ProcessRequest) =>
+  startProcess(request, runner.shellEnv),
+);
 
-      return {
-        start: (request: ProcessRequest) => startProcess(request, cursor.shellEnv),
-        run: (request: ProcessRequest, options?: { readonly failOnNonZero?: boolean }) =>
-          runProcess(request, cursor.shellEnv, options),
-      };
-    }),
-  },
-) {}
+const run: {
+  (
+    runner: ProcessRunner,
+    request: ProcessRequest,
+    options?: { readonly failOnNonZero?: boolean },
+  ): Effect.Effect<ProcessExit, ProcessStartError | ProcessIoError | ProcessExitError>;
+  (
+    request: ProcessRequest,
+    options?: { readonly failOnNonZero?: boolean },
+  ): (
+    runner: ProcessRunner,
+  ) => Effect.Effect<ProcessExit, ProcessStartError | ProcessIoError | ProcessExitError>;
+} = dual(
+  (args) =>
+    args.length >= 2 && typeof args[0] === "object" && args[0] !== null && "shellEnv" in args[0],
+  (
+    runner: ProcessRunner,
+    request: ProcessRequest,
+    options?: { readonly failOnNonZero?: boolean },
+  ) => runProcess(request, runner.shellEnv, options),
+);
+
+export const ProcessRunner = {
+  make: (shellEnv: NodeJS.ProcessEnv): ProcessRunner => ({ shellEnv }),
+  start,
+  run,
+};
