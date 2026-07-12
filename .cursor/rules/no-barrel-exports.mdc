@@ -6,19 +6,21 @@ alwaysApply: false
 
 # No Barrel Exports
 
-Do not create barrel files that re-export runtime values from other modules.
+Do not create barrel files that re-export from other modules — including type-only re-exports.
 
 Avoid:
 
 ```ts
 export * from "./process-runner.js";
 export { ShellEnvironment } from "./shell-environment.js";
+export type { Thread, Run } from "./thread.js";
 ```
 
 Prefer direct imports from the defining module or explicit package subpath exports:
 
 ```ts
 import { ProcessRunner } from "@winnie/orchestrator/process-runner";
+import type { Thread } from "@winnie/contracts/thread";
 ```
 
-Type-only re-exports are allowed when they do not create runtime module graph edges.
+Packages should expose concrete subpaths in `package.json` `exports` (e.g. `./thread`, `./brand`) rather than a root `.` barrel.

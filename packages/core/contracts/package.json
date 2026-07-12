@@ -3,16 +3,22 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./agent-events": {
+      "types": "./dist/agent-events.d.ts",
+      "import": "./dist/agent-events.js"
     },
     "./cursor-agent-events": {
       "types": "./dist/cursor-agent-events.d.ts",
       "import": "./dist/cursor-agent-events.js"
+    },
+    "./ids": {
+      "types": "./dist/ids.d.ts",
+      "import": "./dist/ids.js"
+    },
+    "./thread": {
+      "types": "./dist/thread.d.ts",
+      "import": "./dist/thread.js"
     }
   },
   "scripts": {

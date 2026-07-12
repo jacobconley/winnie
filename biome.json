@@ -28,6 +28,10 @@
     {
       "path": "./.biome/no-effect-try.grit",
       "includes": ["**", "!**/packages/core/utils/src/try.ts"]
+    },
+    {
+      "path": "./.biome/no-barrel-reexport.grit",
+      "includes": ["**"]
     }
   ]
 }

@@ -3,12 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./agent-event-mapper": {
+      "types": "./dist/agent-event-mapper.d.ts",
+      "import": "./dist/agent-event-mapper.js"
+    },
+    "./chat-orchestrator": {
+      "types": "./dist/chat-orchestrator.d.ts",
+      "import": "./dist/chat-orchestrator.js"
     },
     "./cursor-agent-transport": {
       "types": "./dist/cursor-agent-transport.d.ts",
@@ -17,6 +19,10 @@
     "./ndjson-stream": {
       "types": "./dist/ndjson-stream.d.ts",
       "import": "./dist/ndjson-stream.js"
+    },
+    "./orchestrator-store": {
+      "types": "./dist/orchestrator-store.d.ts",
+      "import": "./dist/orchestrator-store.js"
     },
     "./process-runner": {
       "types": "./dist/process-runner.d.ts",

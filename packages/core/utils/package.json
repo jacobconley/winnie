@@ -3,12 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./brand": {
+      "types": "./dist/brand.d.ts",
+      "import": "./dist/brand.js"
     },
     "./message-builder": {
       "types": "./dist/message-builder.d.ts",

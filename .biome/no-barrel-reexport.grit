@@ -1,0 +1,13 @@
+language js
+
+or {
+  `export * from $source` as $stmt where {
+    register_diagnostic(span=$stmt, message="Barrel re-export is banned. Import from the defining module or a package subpath instead.", severity="error")
+  },
+  `export { $$$names } from $source` as $stmt where {
+    register_diagnostic(span=$stmt, message="Barrel re-export is banned. Import from the defining module or a package subpath instead.", severity="error")
+  },
+  `export type { $$$names } from $source` as $stmt where {
+    register_diagnostic(span=$stmt, message="Type-only barrel re-export is banned. Import types from the defining module or a package subpath instead.", severity="error")
+  }
+}
