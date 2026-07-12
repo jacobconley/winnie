@@ -5,14 +5,14 @@ import { RunId as RunIdNs, ThreadId as ThreadIdNs } from "@winnie/contracts/ids"
 import type { Run, Thread } from "@winnie/contracts/thread";
 import { MessageError } from "@winnie/utils/message-error";
 import { Data, Deferred, Effect, Fiber, Layer, Queue, Ref, Stream } from "effect";
-import { cursorSessionIdFromEvent, mapCursorAgentEvent } from "./agent-event-mapper.js";
-import { BackendConfig } from "./backend-config.js";
-import { ChatStore } from "./chat-store.js";
 import {
   type CursorAgentRunRequest,
   CursorService,
-} from "./cursor-agent/cursor-agent-transport.js";
-import type { ProcessIoError, ProcessStartError } from "./cursor-agent/process-runner.js";
+} from "../cursor-agent/cursor-agent-transport.js";
+import type { ProcessIoError, ProcessStartError } from "../cursor-agent/process-runner.js";
+import { CursorContext } from "../cursor-context.js";
+import { cursorSessionIdFromEvent, mapCursorAgentEvent } from "./agent-event-mapper.js";
+import { ChatStore } from "./chat-store.js";
 
 export class OrchestratorConflictError extends Data.TaggedError("OrchestratorConflictError")<{
   readonly message: string;
@@ -338,6 +338,8 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
         stopRun,
       };
     }),
-    dependencies: [Layer.provide(ChatStore.Default, BackendConfig.Default), CursorService.Default],
+    dependencies: [
+      Layer.provide(Layer.merge(ChatStore.Default, CursorService.Default), CursorContext.Default),
+    ],
   },
 ) {}

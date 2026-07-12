@@ -1,6 +1,7 @@
 import { CursorAgentEvent } from "@winnie/contracts/cursor-agent-events";
 import type { MessageError } from "@winnie/utils/message-error";
 import { Effect, Stream } from "effect";
+import { CursorContext } from "../cursor-context.js";
 import { NdjsonStream } from "./ndjson-stream.js";
 import {
   type ProcessExit,
@@ -9,7 +10,6 @@ import {
   ProcessRunner,
   type ProcessStartError,
 } from "./process-runner.js";
-import { ShellEnvironment } from "./shell-environment.js";
 import { compactArgs } from "./shell-utils.js";
 
 /** Cursor args for each message */
@@ -84,11 +84,11 @@ export class CursorService extends Effect.Service<CursorService>()(
   {
     effect: Effect.gen(function* () {
       const processRunner = yield* ProcessRunner;
-      const shellEnvironment = yield* ShellEnvironment;
+      const cursor = yield* CursorContext;
 
       const createProcessRequest = (request: CursorAgentRunRequest) =>
         Effect.gen(function* () {
-          const command = yield* shellEnvironment.resolveExecutable("cursor-agent");
+          const command = yield* cursor.resolveExecutable("cursor-agent");
           return makeProcessRequest({ command, request });
         });
 

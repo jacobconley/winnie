@@ -6,17 +6,8 @@ import { RunId as RunIdNs, ThreadId as ThreadIdNs } from "@winnie/contracts/ids"
 import type { Run, Thread } from "@winnie/contracts/thread";
 import { MessageError } from "@winnie/utils/message-error";
 import { Effect } from "effect";
-import { BackendConfig } from "./backend-config.js";
-
-const makePaths = (root: string) => ({
-  root,
-  threadDir: (threadId: ThreadId) => path.join(root, "threads", threadId),
-  threadJson: (threadId: ThreadId) => path.join(root, "threads", threadId, "thread.json"),
-  transcriptPath: (threadId: ThreadId) => path.join(root, "threads", threadId, "transcript.ndjson"),
-  runJson: (threadId: ThreadId, runId: RunId) =>
-    path.join(root, "threads", threadId, "runs", `${runId}.json`),
-  threadLogDirectory: (threadId: ThreadId) => path.join(root, "threads", threadId, "logs"),
-});
+import { CursorContext } from "../cursor-context.js";
+import { ThreadPaths } from "./thread-context.js";
 
 const readJsonFile = <A>(filePath: string, label: string) =>
   MessageError.TryPromise(
@@ -46,32 +37,32 @@ const reviveRun = (value: Run): Run => ({
 });
 
 /**
- * Durable chat storage (threads, runs, transcripts). Paths come from
- * {@link BackendConfig} in Effect context — not from the orchestrator model.
+ * Durable chat storage (threads, runs, transcripts).
+ * Uses {@link CursorContext} for the data root and {@link ThreadPaths} per thread.
  */
 export class ChatStore extends Effect.Service<ChatStore>()("@winnie/backend/ChatStore", {
   effect: Effect.gen(function* () {
-    const { dataDirectory } = yield* BackendConfig;
-    const paths = makePaths(dataDirectory);
+    const cursor = yield* CursorContext;
+    const pathsFor = (threadId: ThreadId) => ThreadPaths.make(cursor.dataDirectory, threadId);
 
     return {
-      dataDirectory,
+      dataDirectory: cursor.dataDirectory,
 
-      threadLogDirectory: (threadId: ThreadId) => paths.threadLogDirectory(threadId),
+      threadLogDirectory: (threadId: ThreadId) => pathsFor(threadId).logDirectory,
 
       saveThread: (thread: Thread) =>
-        writeJsonFile(paths.threadJson(thread.id), thread, "thread metadata"),
+        writeJsonFile(pathsFor(thread.id).threadJson, thread, "thread metadata"),
 
       loadThread: (threadId: ThreadId) =>
         Effect.gen(function* () {
-          const raw = yield* readJsonFile<Thread>(paths.threadJson(threadId), "thread metadata");
+          const raw = yield* readJsonFile<Thread>(pathsFor(threadId).threadJson, "thread metadata");
           return reviveThread(raw);
         }),
 
       listThreads: () =>
         MessageError.TryPromise(
           async () => {
-            const threadsRoot = path.join(paths.root, "threads");
+            const threadsRoot = ThreadPaths.threadsRoot(cursor.dataDirectory);
             await mkdir(threadsRoot, { recursive: true });
             const entries = await readdir(threadsRoot, { withFileTypes: true });
             const threads: Thread[] = [];
@@ -93,11 +84,11 @@ export class ChatStore extends Effect.Service<ChatStore>()("@winnie/backend/Chat
         ),
 
       saveRun: (run: Run) =>
-        writeJsonFile(paths.runJson(run.threadId, run.id), run, "run metadata"),
+        writeJsonFile(pathsFor(run.threadId).runJson(run.id), run, "run metadata"),
 
       loadRun: (threadId: ThreadId, runId: RunId) =>
         Effect.gen(function* () {
-          const raw = yield* readJsonFile<Run>(paths.runJson(threadId, runId), "run metadata");
+          const raw = yield* readJsonFile<Run>(pathsFor(threadId).runJson(runId), "run metadata");
           return reviveRun(raw);
         }),
 
@@ -106,25 +97,22 @@ export class ChatStore extends Effect.Service<ChatStore>()("@winnie/backend/Chat
           return Effect.void;
         }
 
+        const filePath = pathsFor(threadId).transcriptPath;
         return MessageError.TryPromise(
           async () => {
-            const filePath = paths.transcriptPath(threadId);
             await mkdir(path.dirname(filePath), { recursive: true });
             const chunk = `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
             await appendFile(filePath, chunk, "utf8");
           },
           (error, builder) =>
-            builder
-              .line("Failed to append transcript events.")
-              .line(paths.transcriptPath(threadId))
-              .cause(error),
+            builder.line("Failed to append transcript events.").line(filePath).cause(error),
         );
       },
 
-      readTranscript: (threadId: ThreadId) =>
-        MessageError.TryPromise(
+      readTranscript: (threadId: ThreadId) => {
+        const filePath = pathsFor(threadId).transcriptPath;
+        return MessageError.TryPromise(
           async () => {
-            const filePath = paths.transcriptPath(threadId);
             let text: string;
             try {
               text = await readFile(filePath, "utf8");
@@ -151,11 +139,9 @@ export class ChatStore extends Effect.Service<ChatStore>()("@winnie/backend/Chat
             return events;
           },
           (error, builder) =>
-            builder
-              .line("Failed to read transcript.")
-              .line(paths.transcriptPath(threadId))
-              .cause(error),
-        ),
+            builder.line("Failed to read transcript.").line(filePath).cause(error),
+        );
+      },
     } as const;
   }),
 }) {}

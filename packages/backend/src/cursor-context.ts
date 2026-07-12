@@ -1,6 +1,14 @@
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { MessageError } from "@winnie/utils/message-error";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
+
+export interface CursorContextOptions {
+  readonly dataDirectory?: string;
+}
+
+const defaultDataDirectory = path.join(tmpdir(), "winnie-backend");
 
 const getConfiguredShell = () => process.env.SHELL ?? "/bin/zsh";
 
@@ -65,7 +73,7 @@ const discoverEnvironment = MessageError.TryPromise(
   (error, builder) => builder.line("Failed to discover the user shell environment.").cause(error),
 );
 
-const resolveExecutable = (env: NodeJS.ProcessEnv, name: string) =>
+const resolveExecutableInEnv = (env: NodeJS.ProcessEnv, name: string) =>
   MessageError.TryPromise(
     async () => {
       const { stdout } = await runLoginShell(`command -v ${quoteShellWord(name)}`, env);
@@ -80,16 +88,38 @@ const resolveExecutable = (env: NodeJS.ProcessEnv, name: string) =>
     (error, builder) => builder.line(`Failed to resolve executable '${name}'.`).cause(error),
   );
 
-export class ShellEnvironment extends Effect.Service<ShellEnvironment>()(
-  "@winnie/backend/ShellEnvironment",
-  {
-    effect: Effect.gen(function* () {
-      const env = yield* discoverEnvironment;
+export interface CursorContextService {
+  readonly dataDirectory: string;
+  readonly shellEnv: NodeJS.ProcessEnv;
+  readonly resolveExecutable: (name: string) => Effect.Effect<string, MessageError>;
+}
 
-      return {
-        get: Effect.succeed(env),
-        resolveExecutable: (name: string) => resolveExecutable(env, name),
-      };
-    }),
-  },
-) {}
+const makeCursorContext = (
+  options?: CursorContextOptions,
+): Effect.Effect<CursorContextService, MessageError> =>
+  Effect.gen(function* () {
+    const dataDirectory = options?.dataDirectory ?? defaultDataDirectory;
+    const shellEnv = yield* discoverEnvironment;
+
+    return {
+      dataDirectory,
+      shellEnv,
+      resolveExecutable: (name: string) => resolveExecutableInEnv(shellEnv, name),
+    };
+  });
+
+/**
+ * Process-level bootstrap: data root, login-shell env, and future global config
+ * (cockpit workspace, etc.). Per-thread paths live on `ThreadContext` in `chat/`.
+ *
+ * Provide once via {@link CursorContext.layer} / {@link CursorContext.Default}.
+ */
+export class CursorContext extends Context.Tag("@winnie/backend/CursorContext")<
+  CursorContext,
+  CursorContextService
+>() {
+  static layer = (options?: CursorContextOptions) =>
+    Layer.effect(CursorContext, makeCursorContext(options));
+
+  static Default = CursorContext.layer();
+}

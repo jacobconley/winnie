@@ -7,7 +7,7 @@ import path from "node:path";
 import { NodeStream } from "@effect/platform-node";
 import { TryEffect } from "@winnie/utils/try";
 import { Data, Effect, Stream } from "effect";
-import { ShellEnvironment } from "./shell-environment.js";
+import { CursorContext } from "../cursor-context.js";
 
 export interface ProcessRequest {
   readonly command: string;
@@ -251,15 +251,13 @@ export class ProcessRunner extends Effect.Service<ProcessRunner>()(
   "@winnie/backend/ProcessRunner",
   {
     effect: Effect.gen(function* () {
-      const shellEnvironment = yield* ShellEnvironment;
-      const shellEnv = yield* shellEnvironment.get;
+      const cursor = yield* CursorContext;
 
       return {
-        start: (request: ProcessRequest) => startProcess(request, shellEnv),
+        start: (request: ProcessRequest) => startProcess(request, cursor.shellEnv),
         run: (request: ProcessRequest, options?: { readonly failOnNonZero?: boolean }) =>
-          runProcess(request, shellEnv, options),
+          runProcess(request, cursor.shellEnv, options),
       };
     }),
-    dependencies: [ShellEnvironment.Default],
   },
 ) {}
