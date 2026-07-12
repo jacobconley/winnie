@@ -1,12 +1,7 @@
 # Roadmap
 
-- [ ] **Milestone 0: Repo foundation**
-  - Set up monorepo packages:
-    - `apps/vscode`
-    - `helpers/orchestrator`
-    - `core/contracts`
-    - `core/utils`
-    - `public-libs/caruso-cli`
+- [X] **Milestone 0: Repo foundation**
+  - Set up monorepo packages
   - Add TypeScript, Effect, and build conventions.
   - Define shared contracts: `ThreadId`, `RunId`, `AgentEvent`, `RunStatus`, `Task`.
   - Keep Caruso minimal for now; the orchestration MVP does not depend on a full CLI.

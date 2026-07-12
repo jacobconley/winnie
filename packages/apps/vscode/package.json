@@ -1,0 +1,46 @@
+{
+  "name": "@winnie/vscode",
+  "displayName": "Winnie",
+  "description": "VSCode front end for the Winnie agent orchestrator.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "publisher": "winnie",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:winnie.showStatus"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "winnie.showStatus",
+        "title": "Winnie: Show Status"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -b && pnpm run build:bundle",
+    "build:bundle": "node esbuild.mjs",
+    "dev": "node esbuild.mjs --watch",
+    "package": "node esbuild.mjs --production",
+    "typecheck": "tsc -b",
+    "vscode:prepublish": "pnpm run package"
+  },
+  "dependencies": {
+    "@winnie/contracts": "workspace:*",
+    "@winnie/orchestrator": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/vscode": "catalog:",
+    "@vscode/vsce": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "winnie: build extension",
+      "type": "shell",
+      "command": "pnpm --filter @winnie/vscode build",
+      "group": "build",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "winnie: watch extension bundle",
+      "type": "shell",
+      "command": "pnpm --filter @winnie/vscode dev",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Winnie Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/packages/apps/vscode"],
+      "outFiles": ["${workspaceFolder}/packages/apps/vscode/dist/**/*.js"],
+      "preLaunchTask": "winnie: build extension"
+    }
+  ]
+}

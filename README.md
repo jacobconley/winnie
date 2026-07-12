@@ -8,6 +8,18 @@ You keep the parallel productivity boost of background agents, without sacrifici
 
 v1 will ship with a Cursor back end (via `cursor-agent`) and CLI + VSCode front ends (mimicking the ergonomics of Cursor IDE's chat pane plus the orchestration functionality of Winnie).
 
+## Development
+
+Winnie targets Node 24 and uses pnpm through Corepack.
+
+```sh
+asdf install
+corepack enable pnpm
+asdf reshim nodejs
+pnpm install
+```
+
+Use `pnpm run build`, `pnpm run typecheck`, and `pnpm run lint` from the repo root.
 
 ## Docs
 

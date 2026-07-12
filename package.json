@@ -1,0 +1,20 @@
+{
+  "name": "winnie",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "tsc -b && pnpm --filter @winnie/vscode build:bundle",
+    "check": "pnpm run typecheck && pnpm run lint",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "typescript": "catalog:"
+  }
+}
