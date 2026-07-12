@@ -4,8 +4,7 @@
 - `apps/` - User front ends
     - `cli` - Agent orchestrator CLI
     - `vscode` - VSCode extension
-- `back-end/`
-    - `orchestrator` - Shared back-end implementation 
+- `backend/` - Shared implementation used by all front ends
 - `public-libs/`
     - `caruso-cli` - [CLI Toolkit](#cli-toolkit)
 - `core/` - Shared contracts

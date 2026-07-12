@@ -1,6 +1,6 @@
 packages:
   - "packages/apps/*"
-  - "packages/back-end/*"
+  - "packages/backend"
   - "packages/core/*"
   - "packages/public-libs/*"
 

@@ -63,7 +63,7 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
-  packages/back-end/orchestrator:
+  packages/backend:
     dependencies:
       '@effect/platform':
         specifier: 'catalog:'
@@ -73,10 +73,10 @@ importers:
         version: 0.107.0(@effect/cluster@0.59.0(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/workflow@0.18.2(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4)
       '@winnie/contracts':
         specifier: workspace:*
-        version: link:../../core/contracts
+        version: link:../core/contracts
       '@winnie/utils':
         specifier: workspace:*
-        version: link:../../core/utils
+        version: link:../core/utils
       effect:
         specifier: 'catalog:'
         version: 3.21.4

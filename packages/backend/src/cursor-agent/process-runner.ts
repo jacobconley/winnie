@@ -248,7 +248,7 @@ const runProcess = (
   });
 
 export class ProcessRunner extends Effect.Service<ProcessRunner>()(
-  "@winnie/orchestrator/ProcessRunner",
+  "@winnie/backend/ProcessRunner",
   {
     effect: Effect.gen(function* () {
       const shellEnvironment = yield* ShellEnvironment;

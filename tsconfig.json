@@ -4,7 +4,7 @@
     { "path": "./packages/core/utils" },
     { "path": "./packages/core/contracts" },
     { "path": "./packages/public-libs/caruso-cli" },
-    { "path": "./packages/back-end/orchestrator" },
+    { "path": "./packages/backend" },
     { "path": "./packages/apps/vscode" }
   ]
 }

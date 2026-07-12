@@ -80,7 +80,7 @@ const eventsFromStdout = (
   NdjsonStream.bytesToJson(stdout).pipe(Stream.mapEffect(CursorAgentEvent.decode));
 
 export class CursorService extends Effect.Service<CursorService>()(
-  "@winnie/orchestrator/CursorAgentTransport",
+  "@winnie/backend/CursorAgentTransport",
   {
     effect: Effect.gen(function* () {
       const processRunner = yield* ProcessRunner;

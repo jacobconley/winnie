@@ -8,9 +8,12 @@ import type { Run, Thread } from "@winnie/contracts/thread";
 import { MessageError } from "@winnie/utils/message-error";
 import { Data, Deferred, Effect, Fiber, Queue, Ref, Stream } from "effect";
 import { cursorSessionIdFromEvent, mapCursorAgentEvent } from "./agent-event-mapper.js";
-import { type CursorAgentRunRequest, CursorService } from "./cursor-agent-transport.js";
+import {
+  type CursorAgentRunRequest,
+  CursorService,
+} from "./cursor-agent/cursor-agent-transport.js";
+import type { ProcessIoError, ProcessStartError } from "./cursor-agent/process-runner.js";
 import { OrchestratorPaths, RunStore, ThreadStore, TranscriptStore } from "./orchestrator-store.js";
-import type { ProcessIoError, ProcessStartError } from "./process-runner.js";
 
 export class OrchestratorConflictError extends Data.TaggedError("OrchestratorConflictError")<{
   readonly message: string;
@@ -66,11 +69,11 @@ const clearActiveRun = (thread: Thread): Thread => {
 };
 
 export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
-  "@winnie/orchestrator/ChatOrchestrator",
+  "@winnie/backend/ChatOrchestrator",
   {
     effect: Effect.gen(function* () {
       const cursor = yield* CursorService;
-      const paths = OrchestratorPaths.make(path.join(tmpdir(), "winnie-orchestrator"));
+      const paths = OrchestratorPaths.make(path.join(tmpdir(), "winnie-backend"));
       const liveRuns = yield* Ref.make<ReadonlyMap<RunId, LiveRun>>(new Map());
 
       const createThread = (request: CreateThreadRequest) =>

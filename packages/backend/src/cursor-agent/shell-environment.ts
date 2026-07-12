@@ -81,7 +81,7 @@ const resolveExecutable = (env: NodeJS.ProcessEnv, name: string) =>
   );
 
 export class ShellEnvironment extends Effect.Service<ShellEnvironment>()(
-  "@winnie/orchestrator/ShellEnvironment",
+  "@winnie/backend/ShellEnvironment",
   {
     effect: Effect.gen(function* () {
       const env = yield* discoverEnvironment;

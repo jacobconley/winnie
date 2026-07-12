@@ -19,7 +19,7 @@ export type { Thread, Run } from "./thread.js";
 Prefer direct imports from the defining module or explicit package subpath exports:
 
 ```ts
-import { ProcessRunner } from "@winnie/orchestrator/process-runner";
+import { ProcessRunner } from "@winnie/backend/cursor-agent/process-runner";
 import type { Thread } from "@winnie/contracts/thread";
 ```
 
