@@ -1,0 +1,10 @@
+language js
+
+or {
+  `Effect.try($args)` as $call where {
+    register_diagnostic(span=$call, message="Use Try.sync from @winnie/utils/try instead of Effect.try so failures capture a construction-time call site.", severity="error")
+  },
+  `Effect.tryPromise($args)` as $call where {
+    register_diagnostic(span=$call, message="Use Try.promise from @winnie/utils/try instead of Effect.tryPromise so failures capture a construction-time call site.", severity="error")
+  }
+}

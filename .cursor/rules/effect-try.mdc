@@ -1,0 +1,25 @@
+---
+description: Prefer call-site-aware try helpers over bare Effect.try
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# No Bare Effect.try
+
+Do not use `Effect.try` or `Effect.tryPromise` directly.
+
+Prefer the call-site-aware helpers:
+
+```ts
+import { Try } from "@winnie/utils/try";
+
+Try.promise({
+  try: () => doWork(),
+  catch: (error, { callSite }) =>
+    new DomainError({ cause: error, callSite }),
+});
+```
+
+For UI/CLI boundary failures, use `MessageError.Try` / `MessageError.TryPromise` from `@winnie/utils/message-error`.
+
+Keep domain TaggedErrors as the primary error channel inside libraries.

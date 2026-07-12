@@ -23,5 +23,11 @@
         "noBarrelFile": "error"
       }
     }
-  }
+  },
+  "plugins": [
+    {
+      "path": "./.biome/no-effect-try.grit",
+      "includes": ["**", "!**/packages/core/utils/src/try.ts"]
+    }
+  ]
 }

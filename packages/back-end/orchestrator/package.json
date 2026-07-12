@@ -30,6 +30,7 @@
   "dependencies": {
     "@effect/platform": "catalog:",
     "@effect/platform-node": "catalog:",
+    "@winnie/utils": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
