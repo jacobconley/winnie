@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./cursor-agent-events": {
+      "types": "./dist/cursor-agent-events.d.ts",
+      "import": "./dist/cursor-agent-events.js"
     }
   },
   "scripts": {
@@ -16,6 +20,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@winnie/utils": "workspace:*"
+    "@winnie/utils": "workspace:*",
+    "effect": "catalog:"
   }
 }
