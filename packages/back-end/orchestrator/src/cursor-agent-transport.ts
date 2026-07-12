@@ -63,6 +63,11 @@ export class CursorService extends Effect.Service<CursorService>()(
 
       return {
         createProcessRequest,
+        start: (request: CursorAgentRunRequest) =>
+          Effect.gen(function* () {
+            const processRequest = yield* createProcessRequest(request);
+            return yield* processRunner.start(processRequest);
+          }),
         run: (request: CursorAgentRunRequest) =>
           Effect.gen(function* () {
             const processRequest = yield* createProcessRequest(request);
