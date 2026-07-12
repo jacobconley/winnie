@@ -9,6 +9,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./cursor-agent-transport": {
+      "types": "./dist/cursor-agent-transport.d.ts",
+      "import": "./dist/cursor-agent-transport.js"
+    },
+    "./process-runner": {
+      "types": "./dist/process-runner.d.ts",
+      "import": "./dist/process-runner.js"
+    },
+    "./shell-environment": {
+      "types": "./dist/shell-environment.d.ts",
+      "import": "./dist/shell-environment.js"
     }
   },
   "scripts": {
@@ -16,8 +28,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@winnie/contracts": "workspace:*",
-    "@winnie/utils": "workspace:*",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
   }
 }

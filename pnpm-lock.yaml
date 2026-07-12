@@ -40,13 +40,6 @@ importers:
         version: 7.0.2
 
   packages/apps/vscode:
-    dependencies:
-      '@winnie/contracts':
-        specifier: workspace:*
-        version: link:../../core/contracts
-      '@winnie/orchestrator':
-        specifier: workspace:*
-        version: link:../../back-end/orchestrator
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -66,15 +59,13 @@ importers:
 
   packages/back-end/orchestrator:
     dependencies:
-      '@winnie/contracts':
-        specifier: workspace:*
-        version: link:../../core/contracts
-      '@winnie/utils':
-        specifier: workspace:*
-        version: link:../../core/utils
       effect:
         specifier: 'catalog:'
         version: 3.21.4
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
 
   packages/core/contracts:
     dependencies:

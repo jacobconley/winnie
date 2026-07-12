@@ -1,0 +1,24 @@
+---
+description: Avoid barrel exports in TypeScript modules
+globs: **/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# No Barrel Exports
+
+Do not create barrel files that re-export runtime values from other modules.
+
+Avoid:
+
+```ts
+export * from "./process-runner.js";
+export { ShellEnvironment } from "./shell-environment.js";
+```
+
+Prefer direct imports from the defining module or explicit package subpath exports:
+
+```ts
+import { ProcessRunner } from "@winnie/orchestrator/process-runner";
+```
+
+Type-only re-exports are allowed when they do not create runtime module graph edges.

@@ -32,10 +32,6 @@
     "typecheck": "tsc -b",
     "vscode:prepublish": "pnpm run package"
   },
-  "dependencies": {
-    "@winnie/contracts": "workspace:*",
-    "@winnie/orchestrator": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/vscode": "catalog:",

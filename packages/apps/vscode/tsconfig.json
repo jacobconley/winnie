@@ -6,6 +6,5 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "types": ["node", "vscode"]
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../../back-end/orchestrator" }, { "path": "../../core/contracts" }]
+  "include": ["src/**/*.ts"]
 }
