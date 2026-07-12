@@ -4,21 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    "./brand": {
-      "types": "./dist/brand.d.ts",
-      "import": "./dist/brand.js"
-    },
-    "./message-builder": {
-      "types": "./dist/message-builder.d.ts",
-      "import": "./dist/message-builder.js"
-    },
-    "./message-error": {
-      "types": "./dist/message-error.d.ts",
-      "import": "./dist/message-error.js"
-    },
-    "./try": {
-      "types": "./dist/try.d.ts",
-      "import": "./dist/try.js"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
     }
   },
   "scripts": {

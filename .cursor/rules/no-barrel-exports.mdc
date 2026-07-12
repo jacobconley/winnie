@@ -23,4 +23,4 @@ import { ProcessRunner } from "@winnie/backend/cursor-agent/process-runner";
 import type { Thread } from "@winnie/contracts/thread";
 ```
 
-Packages should expose concrete subpaths in `package.json` `exports` (e.g. `./thread`, `./brand`) rather than a root `.` barrel.
+Packages should expose concrete subpaths (via `exports` patterns like `"./*"` for internal packages, or an explicit allowlist for public libs) rather than a root `.` barrel.
