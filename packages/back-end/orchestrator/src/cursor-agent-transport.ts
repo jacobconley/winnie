@@ -1,5 +1,14 @@
-import { Effect } from "effect";
-import { type ProcessRequest, ProcessRunner } from "./process-runner.js";
+import { CursorAgentEvent } from "@winnie/contracts/cursor-agent-events";
+import type { MessageError } from "@winnie/utils/message-error";
+import { Effect, Stream } from "effect";
+import { NdjsonStream } from "./ndjson-stream.js";
+import {
+  type ProcessExit,
+  type ProcessIoError,
+  type ProcessRequest,
+  ProcessRunner,
+  type ProcessStartError,
+} from "./process-runner.js";
 import { ShellEnvironment } from "./shell-environment.js";
 import { compactArgs } from "./shell-utils.js";
 
@@ -19,6 +28,23 @@ export interface CursorAgentRunRequest {
   readonly resume?: string;
   /** Maps to `--sandbox` (`enabled` or `disabled`). */
   readonly sandbox?: string;
+}
+
+export interface StartedCursorAgent {
+  readonly request: CursorAgentRunRequest;
+  readonly processRequest: ProcessRequest;
+  readonly stdoutLogPath: string;
+  readonly stderrLogPath: string;
+  readonly events: Stream.Stream<CursorAgentEvent, ProcessIoError | MessageError>;
+  readonly stderr: Stream.Stream<Uint8Array, ProcessIoError>;
+  readonly exit: Effect.Effect<ProcessExit, ProcessStartError>;
+  readonly kill: Effect.Effect<void>;
+}
+
+export interface CursorAgentRunResult {
+  readonly request: CursorAgentRunRequest;
+  readonly events: readonly CursorAgentEvent[];
+  readonly exit: ProcessExit;
 }
 
 const makeCursorAgentArgs = (request: CursorAgentRunRequest): string[] =>
@@ -48,6 +74,11 @@ const makeProcessRequest = (args: {
   ...(args.request.logDirectory === undefined ? {} : { logDirectory: args.request.logDirectory }),
 });
 
+const eventsFromStdout = (
+  stdout: Stream.Stream<Uint8Array, ProcessIoError>,
+): Stream.Stream<CursorAgentEvent, ProcessIoError | MessageError> =>
+  NdjsonStream.bytesToJson(stdout).pipe(Stream.mapEffect(CursorAgentEvent.decode));
+
 export class CursorService extends Effect.Service<CursorService>()(
   "@winnie/orchestrator/CursorAgentTransport",
   {
@@ -61,18 +92,43 @@ export class CursorService extends Effect.Service<CursorService>()(
           return makeProcessRequest({ command, request });
         });
 
+      const start = (request: CursorAgentRunRequest) =>
+        Effect.gen(function* () {
+          const processRequest = yield* createProcessRequest(request);
+          const started = yield* processRunner.start(processRequest);
+
+          return {
+            request,
+            processRequest,
+            stdoutLogPath: started.stdoutLogPath,
+            stderrLogPath: started.stderrLogPath,
+            events: eventsFromStdout(started.stdout),
+            stderr: started.stderr,
+            exit: started.exit,
+            kill: started.kill,
+          } satisfies StartedCursorAgent;
+        });
+
+      const run = (request: CursorAgentRunRequest) =>
+        Effect.gen(function* () {
+          const started = yield* start(request);
+
+          const [events, , exit] = yield* Effect.all(
+            [Stream.runCollect(started.events), Stream.runDrain(started.stderr), started.exit],
+            { concurrency: "unbounded" },
+          );
+
+          return {
+            request,
+            events: [...events],
+            exit,
+          } satisfies CursorAgentRunResult;
+        });
+
       return {
         createProcessRequest,
-        start: (request: CursorAgentRunRequest) =>
-          Effect.gen(function* () {
-            const processRequest = yield* createProcessRequest(request);
-            return yield* processRunner.start(processRequest);
-          }),
-        run: (request: CursorAgentRunRequest) =>
-          Effect.gen(function* () {
-            const processRequest = yield* createProcessRequest(request);
-            return yield* processRunner.run(processRequest);
-          }),
+        start,
+        run,
       };
     }),
     dependencies: [ProcessRunner.Default],
