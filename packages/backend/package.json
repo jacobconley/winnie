@@ -8,9 +8,17 @@
       "types": "./dist/agent-event-mapper.d.ts",
       "import": "./dist/agent-event-mapper.js"
     },
+    "./backend-config": {
+      "types": "./dist/backend-config.d.ts",
+      "import": "./dist/backend-config.js"
+    },
     "./chat-orchestrator": {
       "types": "./dist/chat-orchestrator.d.ts",
       "import": "./dist/chat-orchestrator.js"
+    },
+    "./chat-store": {
+      "types": "./dist/chat-store.d.ts",
+      "import": "./dist/chat-store.js"
     },
     "./cursor-agent/cursor-agent-transport": {
       "types": "./dist/cursor-agent/cursor-agent-transport.d.ts",
@@ -31,10 +39,6 @@
     "./cursor-agent/shell-utils": {
       "types": "./dist/cursor-agent/shell-utils.d.ts",
       "import": "./dist/cursor-agent/shell-utils.js"
-    },
-    "./orchestrator-store": {
-      "types": "./dist/orchestrator-store.d.ts",
-      "import": "./dist/orchestrator-store.js"
     }
   },
   "scripts": {

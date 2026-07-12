@@ -1,19 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import type { AgentEvent, RunStatus } from "@winnie/contracts/agent-events";
 import type { RunId, ThreadId } from "@winnie/contracts/ids";
 import { RunId as RunIdNs, ThreadId as ThreadIdNs } from "@winnie/contracts/ids";
 import type { Run, Thread } from "@winnie/contracts/thread";
 import { MessageError } from "@winnie/utils/message-error";
-import { Data, Deferred, Effect, Fiber, Queue, Ref, Stream } from "effect";
+import { Data, Deferred, Effect, Fiber, Layer, Queue, Ref, Stream } from "effect";
 import { cursorSessionIdFromEvent, mapCursorAgentEvent } from "./agent-event-mapper.js";
+import { BackendConfig } from "./backend-config.js";
+import { ChatStore } from "./chat-store.js";
 import {
   type CursorAgentRunRequest,
   CursorService,
 } from "./cursor-agent/cursor-agent-transport.js";
 import type { ProcessIoError, ProcessStartError } from "./cursor-agent/process-runner.js";
-import { OrchestratorPaths, RunStore, ThreadStore, TranscriptStore } from "./orchestrator-store.js";
 
 export class OrchestratorConflictError extends Data.TaggedError("OrchestratorConflictError")<{
   readonly message: string;
@@ -73,7 +72,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
   {
     effect: Effect.gen(function* () {
       const cursor = yield* CursorService;
-      const paths = OrchestratorPaths.make(path.join(tmpdir(), "winnie-backend"));
+      const store = yield* ChatStore;
       const liveRuns = yield* Ref.make<ReadonlyMap<RunId, LiveRun>>(new Map());
 
       const createThread = (request: CreateThreadRequest) =>
@@ -85,14 +84,14 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
             createdAt: timestamp,
             updatedAt: timestamp,
           };
-          yield* ThreadStore.save(paths, thread);
+          yield* store.saveThread(thread);
           return thread;
         });
 
-      const getThread = (threadId: ThreadId) => ThreadStore.load(paths, threadId);
-      const listThreads = () => ThreadStore.list(paths);
-      const getTranscript = (threadId: ThreadId) => TranscriptStore.read(paths, threadId);
-      const getRun = (threadId: ThreadId, runId: RunId) => RunStore.load(paths, threadId, runId);
+      const getThread = (threadId: ThreadId) => store.loadThread(threadId);
+      const listThreads = () => store.listThreads();
+      const getTranscript = (threadId: ThreadId) => store.readTranscript(threadId);
+      const getRun = (threadId: ThreadId, runId: RunId) => store.loadRun(threadId, runId);
 
       const registerLive = (live: LiveRun) =>
         Ref.update(liveRuns, (map) => new Map(map).set(live.runId, live));
@@ -106,7 +105,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
 
       const startRun = (request: StartRunRequest) =>
         Effect.gen(function* () {
-          const thread = yield* ThreadStore.load(paths, request.threadId);
+          const thread = yield* store.loadThread(request.threadId);
 
           if (thread.activeRunId !== undefined) {
             return yield* new OrchestratorConflictError({
@@ -151,9 +150,9 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
             },
           ];
 
-          yield* RunStore.save(paths, yield* Ref.get(runState));
-          yield* ThreadStore.save(paths, yield* Ref.get(threadState));
-          yield* TranscriptStore.append(paths, thread.id, lifecycleEvents);
+          yield* store.saveRun(yield* Ref.get(runState));
+          yield* store.saveThread(yield* Ref.get(threadState));
+          yield* store.appendTranscript(thread.id, lifecycleEvents);
 
           const cursorRequest: CursorAgentRunRequest = {
             prompt: request.prompt,
@@ -162,7 +161,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
             ...(request.model === undefined ? {} : { model: request.model }),
             ...(request.sandbox === undefined ? {} : { sandbox: request.sandbox }),
             ...(thread.cursorSessionId === undefined ? {} : { resume: thread.cursorSessionId }),
-            logDirectory: path.join(paths.threadDir(thread.id), "logs"),
+            logDirectory: store.threadLogDirectory(thread.id),
           };
 
           const started = yield* cursor.start(cursorRequest);
@@ -173,7 +172,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
             stderrLogPath: started.stderrLogPath,
             updatedAt: isoNow(),
           }));
-          yield* RunStore.save(paths, yield* Ref.get(runState));
+          yield* store.saveRun(yield* Ref.get(runState));
 
           const finalized = yield* Deferred.make<Run, never>();
           const finalizeClaimed = yield* Ref.make(false);
@@ -212,9 +211,9 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
                 timestamp: endedAt,
               };
 
-              yield* RunStore.save(paths, run);
-              yield* ThreadStore.save(paths, nextThread);
-              yield* TranscriptStore.append(paths, thread.id, [statusEvent]);
+              yield* store.saveRun(run);
+              yield* store.saveThread(nextThread);
+              yield* store.appendTranscript(thread.id, [statusEvent]);
               yield* unregisterLive(runId);
               yield* Deferred.succeed(finalized, run);
               return run;
@@ -239,7 +238,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
                         updatedAt: isoNow(),
                       };
                       yield* Ref.set(threadState, updated);
-                      yield* ThreadStore.save(paths, updated);
+                      yield* store.saveThread(updated);
                     }
                   }
 
@@ -248,7 +247,7 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
                     threadId: thread.id,
                   });
                   if (mapped.length > 0) {
-                    yield* TranscriptStore.append(paths, thread.id, mapped);
+                    yield* store.appendTranscript(thread.id, mapped);
                     for (const event of mapped) {
                       yield* Queue.offer(eventQueue, event);
                     }
@@ -330,8 +329,6 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
         });
 
       return {
-        /** Persistence root for threads / runs / transcripts. */
-        dataDirectory: paths.root,
         createThread,
         getThread,
         listThreads,
@@ -341,6 +338,6 @@ export class ChatOrchestrator extends Effect.Service<ChatOrchestrator>()(
         stopRun,
       };
     }),
-    dependencies: [CursorService.Default],
+    dependencies: [Layer.provide(ChatStore.Default, BackendConfig.Default), CursorService.Default],
   },
 ) {}
