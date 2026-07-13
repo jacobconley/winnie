@@ -6,17 +6,18 @@
   - Define shared contracts: `ThreadId`, `RunId`, `AgentEvent`, `RunStatus`, `Task`.
   - Keep Caruso minimal for now; the orchestration MVP does not depend on a full CLI.
 
-- [ ] **Milestone 1: Cursor transport spike**
+- [X] **Milestone 1: Cursor transport spike**
   - Spawn `cursor-agent -p --output-format stream-json --stream-partial-output`.
   - Parse assistant deltas, tool events, final result, stderr, and nonzero exits.
   - Support `--resume`, `--workspace`, `--sandbox`, `--force`, and basic mode/model knobs.
   - Persist transcript/event logs to disk.
   - Implement stop by killing the child process.
   - **Exit criteria:** a test script can send a prompt, stream output, stop/resume, and replay the transcript.
+  - **Proven via** local dogfood against `AgentChat`: stream text deltas, stop, resume (`cursorSessionId`), transcript replay. Tool wire events are not yet mapped into `AgentEvent`s (text + lifecycle only).
 
 - [ ] **Milestone 2: Orchestrator core**
   - Registry: tasks, threads, worktree paths, branches, and status.
-  - Run manager: one active run per thread, process lifecycle, cancellation, and interrupted recovery.
+  - [X] Run manager (partial): one active run per thread, process lifecycle, cancellation; `openThread` clears stale `activeRunId` after process death.
   - Inject a directory-context message when a thread is transferred between workspaces.
   - Persist enough state to recover cleanly after extension reload.
   - **Exit criteria:** the backend can manage agent runs without any polished UI.

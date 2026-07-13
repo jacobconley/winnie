@@ -51,12 +51,75 @@ const createThread: {
   }),
 );
 
+/**
+ * Clear a stale `activeRunId` left behind when the process died mid-run (no live
+ * supervisor). Marks the run `stopped` and appends `run.statusChanged`.
+ */
+const recoverInterruptedRun = (
+  chat: AgentChat,
+  thread: Thread,
+): Effect.Effect<Thread, MessageError> =>
+  Effect.gen(function* () {
+    const activeRunId = thread.activeRunId;
+    if (activeRunId === undefined) {
+      return thread;
+    }
+
+    const endedAt = isoNow();
+    const existing = yield* Storage.loadRun(chat.storage, thread.id, activeRunId).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({
+          id: activeRunId,
+          threadId: thread.id,
+          prompt: "",
+          status: "running" as const,
+          createdAt: endedAt,
+          updatedAt: endedAt,
+          startedAt: endedAt,
+        }),
+      ),
+    );
+
+    if (existing.status !== "running") {
+      const { activeRunId: _clear, ...rest } = thread;
+      const cleared: Thread = { ...rest, updatedAt: endedAt };
+      yield* Storage.saveThread(chat.storage, cleared);
+      return cleared;
+    }
+
+    const stopped = {
+      ...existing,
+      status: "stopped" as const,
+      endedAt,
+      updatedAt: endedAt,
+      exitSignal: "interrupted" as const,
+    };
+
+    const { activeRunId: _clear, ...rest } = thread;
+    const cleared: Thread = { ...rest, updatedAt: endedAt };
+
+    yield* Storage.saveRun(chat.storage, stopped);
+    yield* Storage.saveThread(chat.storage, cleared);
+    yield* Storage.appendTranscript(chat.storage, thread.id, [
+      {
+        type: "run.statusChanged",
+        runId: activeRunId,
+        threadId: thread.id,
+        status: "stopped",
+        timestamp: endedAt,
+      },
+    ]);
+
+    return cleared;
+  });
+
 const openThread: {
   (chat: AgentChat, threadId: ThreadId): Effect.Effect<AgentChatThread, MessageError>;
   (threadId: ThreadId): (chat: AgentChat) => Effect.Effect<AgentChatThread, MessageError>;
 } = dual(2, (chat: AgentChat, threadId: ThreadId) =>
   Effect.gen(function* () {
-    yield* Storage.loadThread(chat.storage, threadId);
+    const loaded = yield* Storage.loadThread(chat.storage, threadId);
+    yield* recoverInterruptedRun(chat, loaded);
     return yield* AgentChatThreadNs.make(chat, threadId);
   }),
 );
