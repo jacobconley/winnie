@@ -13,7 +13,7 @@ const nowIso = (timestamp?: string) => timestamp ?? new Date().toISOString();
 /**
  * Map a Cursor wire event into zero or more Winnie {@link AgentEvent}s.
  * Streaming text deltas become `assistant.textDelta`; other wire events are
- * ignored here (session id / lifecycle are handled by the orchestrator).
+ * ignored here (session id / lifecycle are handled by AgentChatThread).
  */
 export const mapCursorAgentEvent = (
   event: CursorAgentEvent,

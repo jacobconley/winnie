@@ -7,14 +7,14 @@ import type { Run, Thread } from "@winnie/contracts/thread";
 import { MessageError } from "@winnie/utils/message-error";
 import { Effect } from "effect";
 import { dual } from "effect/Function";
-import { ThreadPaths } from "./thread.js";
+import { ThreadPaths } from "./agent-chat-core.js";
 
 /**
- * Durable chat storage root (process data directory).
- * Construct with {@link ChatStore.make}; namespace ops take this as the first argument.
+ * Durable chat filesystem root. Owns `threadsRoot`; no cursor knowledge.
  */
-export interface ChatStore {
+export interface AgentChatStorage {
   readonly dataDirectory: string;
+  readonly threadsRoot: string;
 }
 
 const readJsonFile = <A>(filePath: string, label: string) =>
@@ -44,52 +44,57 @@ const reviveRun = (value: Run): Run => ({
   threadId: ThreadIdNs.make(value.threadId),
 });
 
-const pathsFor = (store: ChatStore, threadId: ThreadId) =>
-  ThreadPaths.make(store.dataDirectory, threadId);
-
-const threadLogDirectory: {
-  (store: ChatStore, threadId: ThreadId): string;
-  (threadId: ThreadId): (store: ChatStore) => string;
+const paths: {
+  (storage: AgentChatStorage, threadId: ThreadId): ThreadPaths;
+  (threadId: ThreadId): (storage: AgentChatStorage) => ThreadPaths;
 } = dual(
   2,
-  (store: ChatStore, threadId: ThreadId): string => pathsFor(store, threadId).logDirectory,
+  (storage: AgentChatStorage, threadId: ThreadId): ThreadPaths =>
+    ThreadPaths(storage.threadsRoot, threadId),
+);
+
+const threadLogDirectory: {
+  (storage: AgentChatStorage, threadId: ThreadId): string;
+  (threadId: ThreadId): (storage: AgentChatStorage) => string;
+} = dual(
+  2,
+  (storage: AgentChatStorage, threadId: ThreadId): string => paths(storage, threadId).logDirectory,
 );
 
 const saveThread: {
-  (store: ChatStore, thread: Thread): Effect.Effect<void, MessageError>;
-  (thread: Thread): (store: ChatStore) => Effect.Effect<void, MessageError>;
+  (storage: AgentChatStorage, thread: Thread): Effect.Effect<void, MessageError>;
+  (thread: Thread): (storage: AgentChatStorage) => Effect.Effect<void, MessageError>;
 } = dual(
   2,
-  (store: ChatStore, thread: Thread): Effect.Effect<void, MessageError> =>
-    writeJsonFile(pathsFor(store, thread.id).threadJson, thread, "thread metadata"),
+  (storage: AgentChatStorage, thread: Thread): Effect.Effect<void, MessageError> =>
+    writeJsonFile(paths(storage, thread.id).threadJson, thread, "thread metadata"),
 );
 
 const loadThread: {
-  (store: ChatStore, threadId: ThreadId): Effect.Effect<Thread, MessageError>;
-  (threadId: ThreadId): (store: ChatStore) => Effect.Effect<Thread, MessageError>;
+  (storage: AgentChatStorage, threadId: ThreadId): Effect.Effect<Thread, MessageError>;
+  (threadId: ThreadId): (storage: AgentChatStorage) => Effect.Effect<Thread, MessageError>;
 } = dual(
   2,
-  (store: ChatStore, threadId: ThreadId): Effect.Effect<Thread, MessageError> =>
+  (storage: AgentChatStorage, threadId: ThreadId): Effect.Effect<Thread, MessageError> =>
     Effect.gen(function* () {
       const raw = yield* readJsonFile<Thread>(
-        pathsFor(store, threadId).threadJson,
+        paths(storage, threadId).threadJson,
         "thread metadata",
       );
       return reviveThread(raw);
     }),
 );
 
-const listThreads = (store: ChatStore): Effect.Effect<readonly Thread[], MessageError> =>
+const listThreads = (storage: AgentChatStorage): Effect.Effect<readonly Thread[], MessageError> =>
   MessageError.TryPromise(
     async () => {
-      const threadsRoot = ThreadPaths.threadsRoot(store.dataDirectory);
-      await mkdir(threadsRoot, { recursive: true });
-      const entries = await readdir(threadsRoot, { withFileTypes: true });
+      await mkdir(storage.threadsRoot, { recursive: true });
+      const entries = await readdir(storage.threadsRoot, { withFileTypes: true });
       const threads: Thread[] = [];
 
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        const filePath = path.join(threadsRoot, entry.name, "thread.json");
+        const filePath = path.join(storage.threadsRoot, entry.name, "thread.json");
         try {
           const raw = JSON.parse(await readFile(filePath, "utf8")) as Thread;
           threads.push(reviveThread(raw));
@@ -104,43 +109,43 @@ const listThreads = (store: ChatStore): Effect.Effect<readonly Thread[], Message
   );
 
 const saveRun: {
-  (store: ChatStore, run: Run): Effect.Effect<void, MessageError>;
-  (run: Run): (store: ChatStore) => Effect.Effect<void, MessageError>;
+  (storage: AgentChatStorage, run: Run): Effect.Effect<void, MessageError>;
+  (run: Run): (storage: AgentChatStorage) => Effect.Effect<void, MessageError>;
 } = dual(
   2,
-  (store: ChatStore, run: Run): Effect.Effect<void, MessageError> =>
-    writeJsonFile(pathsFor(store, run.threadId).runJson(run.id), run, "run metadata"),
+  (storage: AgentChatStorage, run: Run): Effect.Effect<void, MessageError> =>
+    writeJsonFile(paths(storage, run.threadId).runJson(run.id), run, "run metadata"),
 );
 
 const loadRun: {
-  (store: ChatStore, threadId: ThreadId, runId: RunId): Effect.Effect<Run, MessageError>;
-  (threadId: ThreadId, runId: RunId): (store: ChatStore) => Effect.Effect<Run, MessageError>;
+  (storage: AgentChatStorage, threadId: ThreadId, runId: RunId): Effect.Effect<Run, MessageError>;
+  (
+    threadId: ThreadId,
+    runId: RunId,
+  ): (storage: AgentChatStorage) => Effect.Effect<Run, MessageError>;
 } = dual(
   3,
-  (store: ChatStore, threadId: ThreadId, runId: RunId): Effect.Effect<Run, MessageError> =>
+  (storage: AgentChatStorage, threadId: ThreadId, runId: RunId): Effect.Effect<Run, MessageError> =>
     Effect.gen(function* () {
-      const raw = yield* readJsonFile<Run>(
-        pathsFor(store, threadId).runJson(runId),
-        "run metadata",
-      );
+      const raw = yield* readJsonFile<Run>(paths(storage, threadId).runJson(runId), "run metadata");
       return reviveRun(raw);
     }),
 );
 
 const appendTranscript: {
   (
-    store: ChatStore,
+    storage: AgentChatStorage,
     threadId: ThreadId,
     events: readonly AgentEvent[],
   ): Effect.Effect<void, MessageError>;
   (
     threadId: ThreadId,
     events: readonly AgentEvent[],
-  ): (store: ChatStore) => Effect.Effect<void, MessageError>;
+  ): (storage: AgentChatStorage) => Effect.Effect<void, MessageError>;
 } = dual(
   3,
   (
-    store: ChatStore,
+    storage: AgentChatStorage,
     threadId: ThreadId,
     events: readonly AgentEvent[],
   ): Effect.Effect<void, MessageError> => {
@@ -148,7 +153,7 @@ const appendTranscript: {
       return Effect.void;
     }
 
-    const filePath = pathsFor(store, threadId).transcriptPath;
+    const filePath = paths(storage, threadId).transcriptPath;
     return MessageError.TryPromise(
       async () => {
         await mkdir(path.dirname(filePath), { recursive: true });
@@ -162,12 +167,20 @@ const appendTranscript: {
 );
 
 const readTranscript: {
-  (store: ChatStore, threadId: ThreadId): Effect.Effect<readonly AgentEvent[], MessageError>;
-  (threadId: ThreadId): (store: ChatStore) => Effect.Effect<readonly AgentEvent[], MessageError>;
+  (
+    storage: AgentChatStorage,
+    threadId: ThreadId,
+  ): Effect.Effect<readonly AgentEvent[], MessageError>;
+  (
+    threadId: ThreadId,
+  ): (storage: AgentChatStorage) => Effect.Effect<readonly AgentEvent[], MessageError>;
 } = dual(
   2,
-  (store: ChatStore, threadId: ThreadId): Effect.Effect<readonly AgentEvent[], MessageError> => {
-    const filePath = pathsFor(store, threadId).transcriptPath;
+  (
+    storage: AgentChatStorage,
+    threadId: ThreadId,
+  ): Effect.Effect<readonly AgentEvent[], MessageError> => {
+    const filePath = paths(storage, threadId).transcriptPath;
     return MessageError.TryPromise(
       async () => {
         let text: string;
@@ -200,9 +213,12 @@ const readTranscript: {
   },
 );
 
-export const ChatStore = {
-  make: (dataDirectory: string): ChatStore => ({ dataDirectory }),
-  paths: pathsFor,
+export const AgentChatStorage = {
+  make: (dataDirectory: string): AgentChatStorage => ({
+    dataDirectory,
+    threadsRoot: path.join(dataDirectory, "threads"),
+  }),
+  paths,
   threadLogDirectory,
   saveThread,
   loadThread,

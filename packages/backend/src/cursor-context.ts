@@ -86,7 +86,7 @@ const resolveExecutableInEnv = (env: NodeJS.ProcessEnv, name: string) =>
 
 /**
  * Process-level bootstrap: data root, login-shell env, executable lookup.
- * Per-thread paths are plain data via {@link ThreadPaths}.
+ * Chat thread paths live under AgentChatStorage (`threadsRoot`).
  */
 export interface CursorContextService {
   readonly dataDirectory: string;
